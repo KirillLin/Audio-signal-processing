@@ -7,3 +7,9 @@ sounds/*.wav
 
 # Игнорировать .wav файлы во всех вложенных папках
 **/*.wav
+
+
+.idea/
+__pycache__/
+
+results/
