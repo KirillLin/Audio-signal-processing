@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import librosa.display
 import os
-from config import SAMPLE_RATE, N_FFT, HOP_LENGTH, COLORS
+from config import SAMPLE_RATE, N_FFT, HOP_LENGTH
 
 
 def setup_plotting_style():
@@ -16,6 +16,7 @@ def setup_plotting_style():
     plt.rcParams['figure.dpi'] = 100
     plt.rcParams['savefig.dpi'] = 150
     plt.rcParams['font.size'] = 10
+    plt.rcParams['font.family'] = 'DejaVu Sans'
 
 
 def plot_waveform(signal, sr, title, save_path=None):
@@ -77,7 +78,7 @@ def plot_mel_spectrogram_comparison(signal, sr, title, save_path=None):
         mel_manual,
         aspect='auto',
         origin='lower',
-        extent=[0, len(signal) / sr, 0, mel_manual.shape[0]]
+        extent=[0, len(signal)/sr, 0, mel_manual.shape[0]]
     )
     axes[0].set_xlabel('Время (с)')
     axes[0].set_ylabel('Мел-полоса')
@@ -129,21 +130,21 @@ def plot_spectral_features(signal, sr, title, save_path=None):
     # Спектральный центроид
     ax2 = axes[1]
     time = np.arange(len(centroid)) * (HOP_LENGTH / sr)
-    ax2.plot(time, centroid, color=COLORS['centroid'], linewidth=1.5)
+    ax2.plot(time, centroid, color='red', linewidth=1.5)
     ax2.set_ylabel('Частота (Гц)')
     ax2.set_title('Спектральный центроид')
     ax2.grid(True, alpha=0.3)
 
     # Спектральный спад
     ax3 = axes[2]
-    ax3.plot(time, rolloff, color=COLORS['rolloff'], linewidth=1.5)
+    ax3.plot(time, rolloff, color='green', linewidth=1.5)
     ax3.set_ylabel('Частота (Гц)')
     ax3.set_title('Спектральный спад (85%)')
     ax3.grid(True, alpha=0.3)
 
-    # Спектральная ширина и ZCR
+    # Спектральная ширина
     ax4 = axes[3]
-    ax4.plot(time, bandwidth, color=COLORS['bandwidth'], linewidth=1.5, label='Спектральная ширина')
+    ax4.plot(time, bandwidth, color='blue', linewidth=1.5)
     ax4.set_xlabel('Время (с)')
     ax4.set_ylabel('Частота (Гц)')
     ax4.set_title('Спектральная ширина')
@@ -205,42 +206,22 @@ def plot_chroma(signal, sr, title, save_path=None):
 
 def plot_quality_comparison(results, save_path=None):
     """Визуализация сравнения метрик качества"""
-    from quality_metrics import snr_manual, sdr_manual, si_sdr_manual
-
-    snr_targets = []
-    snr_noisy = []
-    snr_enhanced = []
-    sdr_noisy = []
-    sdr_enhanced = []
-    si_sdr_noisy = []
-    si_sdr_enhanced = []
-
-    for r in results:
-        snr_targets.append(r['snr_target'])
-
-        # Вычисление метрик
-        snr_n = snr_manual(r['original'], r['noisy'])
-        snr_e = snr_manual(r['original'], r['enhanced'])
-        sdr_n = sdr_manual(r['original'], r['noisy'])
-        sdr_e = sdr_manual(r['original'], r['enhanced'])
-        si_sdr_n = si_sdr_manual(r['original'], r['noisy'])
-        si_sdr_e = si_sdr_manual(r['original'], r['enhanced'])
-
-        snr_noisy.append(snr_n)
-        snr_enhanced.append(snr_e)
-        sdr_noisy.append(sdr_n)
-        sdr_enhanced.append(sdr_e)
-        si_sdr_noisy.append(si_sdr_n)
-        si_sdr_enhanced.append(si_sdr_e)
+    snr_targets = [r['snr_target'] for r in results]
+    snr_noisy = [r['snr_noisy'] for r in results]
+    snr_enhanced = [r['snr_enhanced'] for r in results]
+    sdr_noisy = [r['sdr_noisy'] for r in results]
+    sdr_enhanced = [r['sdr_enhanced'] for r in results]
+    si_sdr_noisy = [r['si_sdr_noisy'] for r in results]
+    si_sdr_enhanced = [r['si_sdr_enhanced'] for r in results]
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
     # SNR
-    axes[0].plot(snr_targets, snr_noisy, 'o-', color=COLORS['noisy'],
+    axes[0].plot(snr_targets, snr_noisy, 'o-', color='orange',
                  label='Зашумленный', linewidth=2, markersize=8)
-    axes[0].plot(snr_targets, snr_enhanced, 's-', color=COLORS['enhanced'],
-                 label='Очищенный', linewidth=2, markersize=8)
-    axes[0].plot(snr_targets, snr_targets, '--', color=COLORS['ideal'],
+    axes[0].plot(snr_targets, snr_enhanced, 's-', color='blue',
+                 label='Очищенный (noisereduce)', linewidth=2, markersize=8)
+    axes[0].plot(snr_targets, snr_targets, '--', color='gray',
                  label='Идеальный', alpha=0.5)
     axes[0].set_xlabel('Целевой SNR (дБ)')
     axes[0].set_ylabel('Измеренный SNR (дБ)')
@@ -249,10 +230,10 @@ def plot_quality_comparison(results, save_path=None):
     axes[0].grid(True, alpha=0.3)
 
     # SDR
-    axes[1].plot(snr_targets, sdr_noisy, 'o-', color=COLORS['noisy'],
+    axes[1].plot(snr_targets, sdr_noisy, 'o-', color='orange',
                  label='Зашумленный', linewidth=2, markersize=8)
-    axes[1].plot(snr_targets, sdr_enhanced, 's-', color=COLORS['enhanced'],
-                 label='Очищенный', linewidth=2, markersize=8)
+    axes[1].plot(snr_targets, sdr_enhanced, 's-', color='blue',
+                 label='Очищенный (noisereduce)', linewidth=2, markersize=8)
     axes[1].set_xlabel('Целевой SNR (дБ)')
     axes[1].set_ylabel('SDR (дБ)')
     axes[1].set_title('SDR')
@@ -260,10 +241,10 @@ def plot_quality_comparison(results, save_path=None):
     axes[1].grid(True, alpha=0.3)
 
     # SI-SDR
-    axes[2].plot(snr_targets, si_sdr_noisy, 'o-', color=COLORS['noisy'],
+    axes[2].plot(snr_targets, si_sdr_noisy, 'o-', color='orange',
                  label='Зашумленный', linewidth=2, markersize=8)
-    axes[2].plot(snr_targets, si_sdr_enhanced, 's-', color=COLORS['enhanced'],
-                 label='Очищенный', linewidth=2, markersize=8)
+    axes[2].plot(snr_targets, si_sdr_enhanced, 's-', color='blue',
+                 label='Очищенный (noisereduce)', linewidth=2, markersize=8)
     axes[2].set_xlabel('Целевой SNR (дБ)')
     axes[2].set_ylabel('SI-SDR (дБ)')
     axes[2].set_title('SI-SDR')
@@ -273,7 +254,50 @@ def plot_quality_comparison(results, save_path=None):
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.close()
+    else:
+        plt.show()
+
+
+def plot_methods_comparison(clean_signal, noisy_signal, sr, methods_results, save_path=None):
+    """
+    Визуализация сравнения методов шумоподавления
+
+    Parameters:
+    - clean_signal: чистый сигнал
+    - noisy_signal: зашумленный сигнал
+    - sr: частота дискретизации
+    - methods_results: результаты сравнения методов
+    - save_path: путь для сохранения
+    """
+    # Выбираем до 4 методов для отображения
+    methods_to_show = list(methods_results.keys())[:4]
+    n_methods = len(methods_to_show)
+
+    fig, axes = plt.subplots(1, n_methods + 1, figsize=(5 * (n_methods + 1), 5))
+
+    # Спектрограмма зашумленного
+    stft = librosa.stft(noisy_signal)
+    spec_db = librosa.amplitude_to_db(np.abs(stft), ref=np.max)
+    librosa.display.specshow(spec_db, sr=sr, x_axis='time', y_axis='hz', ax=axes[0])
+    axes[0].set_title(f'Зашумленный\nSNR: {methods_results[methods_to_show[0]]["snr_before"]:.1f} дБ')
+
+    # Спектрограммы очищенных
+    for i, method in enumerate(methods_to_show):
+        ax = axes[i + 1]
+        enhanced = methods_results[method]['signal']
+        stft = librosa.stft(enhanced)
+        spec_db = librosa.amplitude_to_db(np.abs(stft), ref=np.max)
+        librosa.display.specshow(spec_db, sr=sr, x_axis='time', y_axis='hz', ax=ax)
+
+        improvement = methods_results[method]['improvement']
+        ax.set_title(f'{method}\nУлучшение: {improvement:.1f} дБ')
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
         plt.close()
     else:
         plt.show()

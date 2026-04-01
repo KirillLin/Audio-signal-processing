@@ -1,12 +1,24 @@
 """
 Главный файл для запуска лабораторной работы
+Вариант 12: Мел-спектрограмма, MFCC, спектральная ширина, SNR, SDR
+Шумоподавление: Винеровский фильтр (оптимальный линейный фильтр)
 """
 
 import os
 import numpy as np
+import matplotlib.pyplot as plt
+import librosa
+import soundfile as sf
+
 from config import SAMPLE_RATE, SNR_VALUES, MUSIC_GENRES, RESULTS_DIR
 from audio_utils import ensure_audio_files, save_audio
-from noise_processing import batch_noise_experiment, generate_noise_signal
+from noise_processing import (
+    batch_noise_experiment,
+    generate_noise_signal,
+    compare_denoise_methods,
+    denoise_main,
+    denoise_wiener
+)
 from visualization import (
     setup_plotting_style,
     plot_waveform,
@@ -15,7 +27,8 @@ from visualization import (
     plot_spectral_features,
     plot_mfcc,
     plot_chroma,
-    plot_quality_comparison
+    plot_quality_comparison,
+    plot_methods_comparison
 )
 from spectral_features import (
     spectral_centroid_librosa,
@@ -28,39 +41,27 @@ from quality_metrics import snr_manual, sdr_manual, si_sdr_manual
 
 
 def analyze_music_file(signal, sr, genre):
-    """
-    Полный анализ музыкального файла
-    """
-    print(f"\n{'=' * 60}")
+    """Полный анализ музыкального файла"""
+    print(f"\n{'='*60}")
     print(f"АНАЛИЗ: {genre}")
-    print('=' * 60)
+    print('='*60)
 
     genre_folder = os.path.join(RESULTS_DIR, genre.replace(' ', '_'))
     os.makedirs(genre_folder, exist_ok=True)
 
-    # 1. Визуализация сигнала
+    # Визуализации
     plot_waveform(signal, sr, f'Осциллограмма - {genre}',
                   os.path.join(genre_folder, 'waveform.png'))
-
-    # 2. Спектрограмма
     plot_spectrogram(signal, sr, f'Спектрограмма - {genre}',
                      os.path.join(genre_folder, 'spectrogram.png'))
-
-    # 3. Мел-спектрограмма (сравнение)
     plot_mel_spectrogram_comparison(signal, sr, f'Мел-спектрограмма - {genre}',
                                     os.path.join(genre_folder, 'mel_spectrogram.png'))
-
-    # 4. Спектральные признаки
     plot_spectral_features(signal, sr, f'Спектральные признаки - {genre}',
-                           os.path.join(genre_folder, 'spectral_features.png'))
-
-    # 5. MFCC
+                          os.path.join(genre_folder, 'spectral_features.png'))
     plot_mfcc(signal, sr, genre, os.path.join(genre_folder, 'mfcc.png'))
-
-    # 6. Цветность
     plot_chroma(signal, sr, genre, os.path.join(genre_folder, 'chroma.png'))
 
-    # Вычисление средних значений признаков
+    # Вычисление средних значений
     centroid = spectral_centroid_librosa(signal, sr)
     rolloff = spectral_rolloff_librosa(signal, sr)
     bandwidth = spectral_bandwidth_librosa(signal, sr)
@@ -84,15 +85,14 @@ def analyze_music_file(signal, sr, genre):
 
 
 def main():
-    """
-    Основная функция
-    """
-    print("=" * 70)
+    """Основная функция"""
+    print("="*70)
     print("ЛАБОРАТОРНАЯ РАБОТА ПО ЦИФРОВОЙ ОБРАБОТКЕ АУДИОСИГНАЛОВ")
-    print("Вариант 12: Мел-спектрограмма, MFCC, спектральная ширина, SNR, SDR, DeepFilterNet2")
-    print("=" * 70)
+    print("Вариант 12: Мел-спектрограмма, MFCC, спектральная ширина, SNR, SDR")
+    print("Шумоподавление: Винеровский фильтр (оптимальный линейный фильтр)")
+    print("="*70)
 
-    # Настройка стиля графиков
+    # Настройка стиля
     setup_plotting_style()
 
     # Создание папок
@@ -105,9 +105,9 @@ def main():
     # ========================================================================
     # ЧАСТЬ 2-3: Анализ музыкальных файлов
     # ========================================================================
-    print("\n" + "=" * 70)
+    print("\n" + "="*70)
     print("ЧАСТЬ 2-3: АНАЛИЗ МУЗЫКАЛЬНЫХ ФАЙЛОВ И СПЕКТРАЛЬНЫХ ПРИЗНАКОВ")
-    print("=" * 70)
+    print("="*70)
 
     music_results = []
     for genre in MUSIC_GENRES:
@@ -120,9 +120,9 @@ def main():
     # ========================================================================
     # ЧАСТЬ 4-5: Эксперименты с шумом
     # ========================================================================
-    print("\n" + "=" * 70)
+    print("\n" + "="*70)
     print("ЧАСТЬ 4-5: ЭКСПЕРИМЕНТЫ С ШУМОМ И ОЦЕНКА КАЧЕСТВА")
-    print("=" * 70)
+    print("="*70)
 
     # Голосовой сигнал
     voice_signal = audio_files['Voice']['signal']
@@ -131,70 +131,110 @@ def main():
     # Шумовой сигнал
     noise_signal = audio_files['Noise']['signal']
 
-    print(f"\nГолосовой сигнал: длина {len(voice_signal) / voice_sr:.2f} сек")
-    print(f"Шумовой сигнал: длина {len(noise_signal) / voice_sr:.2f} сек")
-    print(f"Диапазон SNR: {SNR_VALUES[0]}-{SNR_VALUES[-1]} дБ, шаг {SNR_VALUES[1] - SNR_VALUES[0]} дБ")
+    print(f"\nГолосовой сигнал: длина {len(voice_signal)/voice_sr:.2f} сек")
+    print(f"Шумовой сигнал: длина {len(noise_signal)/voice_sr:.2f} сек")
+    print(f"Диапазон SNR: {SNR_VALUES[0]}-{SNR_VALUES[-1]} дБ, шаг {SNR_VALUES[1]-SNR_VALUES[0]} дБ")
+    print(f"Метод шумоподавления: Винеровский фильтр")
 
-    # Проведение эксперимента
-    noise_experiment_results = batch_noise_experiment(voice_signal, noise_signal, SNR_VALUES, voice_sr)
+    # Проведение эксперимента с шумоподавлением
+    noise_results = batch_noise_experiment(
+        voice_signal,
+        noise_signal,
+        SNR_VALUES,
+        voice_sr,
+        method='wiener'
+    )
 
-    # Сохранение результатов и вычисление метрик
-    processed_results = []
-    for r in noise_experiment_results:
-        # Сохранение аудиофайлов
-        save_audio(os.path.join(RESULTS_DIR, f'noisy_snr_{r["snr_target"]:.0f}dB.wav'), r['noisy'], voice_sr)
-        save_audio(os.path.join(RESULTS_DIR, f'enhanced_snr_{r["snr_target"]:.0f}dB.wav'), r['enhanced'], voice_sr)
+    # Сохранение аудиофайлов и визуализация
+    for r in noise_results:
+        save_audio(os.path.join(RESULTS_DIR, f'noisy_snr_{r["snr_target"]:.0f}dB.wav'),
+                   r['noisy'], voice_sr)
+        save_audio(os.path.join(RESULTS_DIR, f'enhanced_snr_{r["snr_target"]:.0f}dB.wav'),
+                   r['enhanced'], voice_sr)
 
-        # Визуализация спектрограмм
-        plot_spectrogram(r['noisy'], voice_sr, f'Зашумленный сигнал (SNR={r["snr_target"]} дБ)',
-                         os.path.join(RESULTS_DIR, f'spectrogram_noisy_{r["snr_target"]:.0f}dB.png'))
-        plot_spectrogram(r['enhanced'], voice_sr, f'Очищенный сигнал (SNR={r["snr_target"]} дБ)',
-                         os.path.join(RESULTS_DIR, f'spectrogram_enhanced_{r["snr_target"]:.0f}dB.png'))
+        plot_spectrogram(r['noisy'], voice_sr,
+                        f'Зашумленный сигнал (SNR={r["snr_target"]} дБ)',
+                        os.path.join(RESULTS_DIR, f'spectrogram_noisy_{r["snr_target"]:.0f}dB.png'))
+        plot_spectrogram(r['enhanced'], voice_sr,
+                        f'Очищенный сигнал (SNR={r["snr_target"]} дБ)',
+                        os.path.join(RESULTS_DIR, f'spectrogram_enhanced_{r["snr_target"]:.0f}dB.png'))
 
-        # Вычисление метрик для сравнения
-        snr_n = snr_manual(voice_signal, r['noisy'])
-        snr_e = snr_manual(voice_signal, r['enhanced'])
-        sdr_n = sdr_manual(voice_signal, r['noisy'])
-        sdr_e = sdr_manual(voice_signal, r['enhanced'])
-        si_sdr_n = si_sdr_manual(voice_signal, r['noisy'])
-        si_sdr_e = si_sdr_manual(voice_signal, r['enhanced'])
+    # ========================================================================
+    # СРАВНЕНИЕ МЕТОДОВ ШУМОПОДАВЛЕНИЯ
+    # ========================================================================
+    print("\n" + "="*70)
+    print("СРАВНЕНИЕ МЕТОДОВ ШУМОПОДАВЛЕНИЯ")
+    print("="*70)
 
-        processed_results.append({
-            'snr_target': r['snr_target'],
-            'actual_snr': r['actual_snr'],
-            'original': voice_signal,
-            'noisy': r['noisy'],
-            'enhanced': r['enhanced'],
-            'snr_noisy': snr_n,
-            'snr_enhanced': snr_e,
-            'sdr_noisy': sdr_n,
-            'sdr_enhanced': sdr_e,
-            'si_sdr_noisy': si_sdr_n,
-            'si_sdr_enhanced': si_sdr_e
-        })
+    # Возьмем сигнал с SNR=6 дБ для сравнения
+    test_snr = 6
+    test_noisy = None
+    for r in noise_results:
+        if r['snr_target'] == test_snr:
+            test_noisy = r['noisy']
+            break
 
-        print(f"\nSNR {r['snr_target']:.0f} дБ:")
-        print(f"  Зашумленный: SNR={snr_n:.2f}, SDR={sdr_n:.2f}, SI-SDR={si_sdr_n:.2f}")
-        print(f"  Очищенный:  SNR={snr_e:.2f}, SDR={sdr_e:.2f}, SI-SDR={si_sdr_e:.2f}")
-        print(f"  Улучшение:  SNR={snr_e - snr_n:.2f} дБ")
+    best_method_info = None
+    if test_noisy is not None:
+        # Сравнение методов
+        methods_results, best_method = compare_denoise_methods(voice_signal, test_noisy, voice_sr)
 
-    # Визуализация сравнения метрик
-    plot_quality_comparison(processed_results, os.path.join(RESULTS_DIR, 'quality_comparison.png'))
+        # Визуализация сравнения
+        plot_methods_comparison(voice_signal, test_noisy, voice_sr, methods_results,
+                               os.path.join(RESULTS_DIR, 'methods_comparison.png'))
+
+        best_method_info = best_method
+
+        # Сохраняем лучший результат отдельно
+        best_enhanced = best_method[1]['signal']
+        save_audio(os.path.join(RESULTS_DIR, f'best_method_enhanced.wav'),
+                   best_enhanced, voice_sr)
+
+    # ========================================================================
+    # Визуализация сравнения метрик качества
+    # ========================================================================
+    plot_quality_comparison(noise_results, os.path.join(RESULTS_DIR, 'quality_comparison.png'))
 
     # ========================================================================
     # ЧАСТЬ 5: Субъективная оценка
     # ========================================================================
-    generate_subjective_form(processed_results)
+    generate_subjective_form(noise_results)
 
     # ========================================================================
     # ЧАСТЬ 7: Генерация отчета
     # ========================================================================
-    generate_report(music_results, processed_results, voice_sr)
+    generate_report(music_results, noise_results, voice_sr, best_method_info)
 
-    print("\n" + "=" * 70)
+    # ========================================================================
+    # Вывод статистики
+    # ========================================================================
+    print("\n" + "="*70)
+    print("СТАТИСТИКА ВЫПОЛНЕНИЯ")
+    print("="*70)
+
+    if noise_results:
+        improvements = [r['improvement'] for r in noise_results]
+        print(f"\n📈 Результаты шумоподавления (Винеровский фильтр):")
+        for r in noise_results:
+            status = "✓" if r['improvement'] > 0 else "✗"
+            print(f"   SNR {r['snr_target']:2d} дБ: {r['snr_noisy']:.2f} → {r['snr_enhanced']:.2f} дБ ({status} {abs(r['improvement']):.2f} дБ)")
+
+        print(f"\n📊 Среднее улучшение: {np.mean(improvements):.2f} дБ")
+        print(f"🏆 Максимальное улучшение: {max(improvements):.2f} дБ")
+
+    # Подсчет графиков
+    png_files = []
+    for root, dirs, files in os.walk('results'):
+        for file in files:
+            if file.endswith('.png'):
+                png_files.append(os.path.join(root, file))
+
+    print(f"\n📊 Создано PNG графиков: {len(png_files)}")
+
+    print("\n" + "="*70)
     print("РАБОТА ЗАВЕРШЕНА УСПЕШНО!")
     print(f"Все результаты сохранены в папке '{RESULTS_DIR}'")
-    print("=" * 70)
+    print("="*70)
 
 
 if __name__ == "__main__":

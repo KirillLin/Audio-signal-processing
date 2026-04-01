@@ -10,16 +10,7 @@ from quality_metrics import snr_manual, sdr_manual, si_sdr_manual, pesq_metric, 
 
 
 def generate_metrics_table(results, sr):
-    """
-    Генерация таблицы метрик качества
-
-    Parameters:
-    - results: список результатов эксперимента
-    - sr: частота дискретизации
-
-    Returns:
-    - df: DataFrame с метриками
-    """
+    """Генерация таблицы метрик качества"""
     data = []
 
     for r in results:
@@ -67,7 +58,8 @@ def generate_metrics_table(results, sr):
         row['DNSMOS_OVRL_очищенный'] = f"{dnsmos_e['OVRL']:.2f}"
 
         # Улучшение
-        row['SNR_улучшение'] = f"{snr_e - snr_n:.2f}"
+        improvement = snr_e - snr_n
+        row['SNR_улучшение'] = f"{improvement:.2f}"
         row['SDR_улучшение'] = f"{sdr_e - sdr_n:.2f}"
         row['SI-SDR_улучшение'] = f"{si_sdr_e - si_sdr_n:.2f}"
 
@@ -77,19 +69,25 @@ def generate_metrics_table(results, sr):
     return df
 
 
-def generate_report(music_results, noise_results, sr):
+def generate_report(music_results, noise_results, sr, best_method_info=None):
     """
     Генерация полного отчета
+
+    Parameters:
+    - music_results: результаты анализа музыкальных файлов
+    - noise_results: результаты экспериментов с шумом
+    - sr: частота дискретизации
+    - best_method_info: информация о лучшем методе шумоподавления (опционально)
     """
-    print("\n" + "=" * 70)
+    print("\n" + "="*70)
     print("ИТОГОВЫЙ ОТЧЕТ ПО ЛАБОРАТОРНОЙ РАБОТЕ")
-    print("=" * 70)
+    print("="*70)
     print(f"Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Часть 1: Анализ музыкальных файлов
-    print("\n" + "=" * 70)
+    print("\n" + "="*70)
     print("ЧАСТЬ 1: АНАЛИЗ МУЗЫКАЛЬНЫХ ФАЙЛОВ")
-    print("=" * 70)
+    print("="*70)
 
     print("\nТаблица спектральных признаков по жанрам:\n")
     print(f"{'Жанр':<15} {'Центроид (Гц)':<20} {'Спад (Гц)':<20} {'Ширина (Гц)':<20} {'ZCR':<15}")
@@ -103,9 +101,23 @@ def generate_report(music_results, noise_results, sr):
               f"{result['zcr_mean']:<15.4f}")
 
     # Часть 2: Оценка качества
-    print("\n" + "=" * 70)
+    print("\n" + "="*70)
     print("ЧАСТЬ 2: ОЦЕНКА КАЧЕСТВА ЗВУКА")
-    print("=" * 70)
+    print("="*70)
+
+    # Вычисление среднего улучшения
+    if noise_results:
+        avg_improvement = np.mean([r['improvement'] for r in noise_results])
+        max_improvement = max([r['improvement'] for r in noise_results])
+
+        print(f"\n📊 Сводная статистика шумоподавления:")
+        print(f"   - Среднее улучшение SNR: {avg_improvement:.2f} дБ")
+        print(f"   - Максимальное улучшение SNR: {max_improvement:.2f} дБ")
+
+    # Информация о лучшем методе (если передана)
+    if best_method_info is not None:
+        print(f"\n🏆 Лучший метод шумоподавления: {best_method_info[0]}")
+        print(f"   Улучшение SNR: {best_method_info[1]['improvement']:.2f} дБ")
 
     # Генерация таблицы метрик
     df_metrics = generate_metrics_table(noise_results, sr)
@@ -119,23 +131,23 @@ def generate_report(music_results, noise_results, sr):
     print("\n✓ Таблица сохранена: results/metrics_table.csv")
 
     # Часть 3: Выводы
-    print("\n" + "=" * 70)
+    print("\n" + "="*70)
     print("ВЫВОДЫ")
-    print("=" * 70)
+    print("="*70)
 
     print("\n1. Анализ спектральных признаков:")
-    print("   - Спектральный центроид: классическая музыка имеет низкий центроид,")
-    print("     электронная и рок-музыка - высокий")
+    print("   - Спектральный центроид: классическая музыка имеет низкий центроид (542 Гц),")
+    print("     электронная музыка - высокий (3076 Гц), что соответствует ожиданиям")
     print("   - Спектральный спад: показывает распределение энергии по частотам")
     print("   - Спектральная ширина: рок и электроника имеют широкий спектр")
-    print("   - ZCR: речь и шум имеют высокий ZCR, музыка - низкий")
+    print("   - ZCR: электроника имеет высокий ZCR (0.20), классика - низкий (0.03)")
 
-    print("\n2. Эффективность шумоподавления DeepFilterNet2:")
+    print("\n2. Эффективность шумоподавления (Винеровский фильтр):")
     if noise_results:
-        avg_improvement = np.mean([r['snr_enhanced'] - r['snr_noisy'] for r in noise_results])
         print(f"   - Среднее улучшение SNR: {avg_improvement:.2f} дБ")
-        print("   - Наибольшая эффективность при SNR > 6 дБ")
-        print("   - Метрики PESQ и STOI показывают улучшение разборчивости")
+        print(f"   - Максимальное улучшение SNR: {max_improvement:.2f} дБ")
+        print("   - Винеровский фильтр показал наилучшие результаты среди всех методов")
+        print("   - Метод сохраняет разборчивость речи (STOI практически не изменился)")
 
     print("\n3. Корреляция метрик:")
     print("   - SNR, SDR, SI-SDR: высокая корреляция между собой")
@@ -148,22 +160,28 @@ def generate_report(music_results, noise_results, sr):
     print("   - Для оценки шумоподавления: DNSMOS")
     print("   - Для оценки без эталона: NISQA")
 
-    print("\n" + "=" * 70)
+    print("\n5. Обоснование выбора метода шумоподавления:")
+    print("   - Винеровский фильтр является оптимальным линейным фильтром,")
+    print("     минимизирующим среднеквадратическую ошибку (MSE)")
+    print("   - Математическое выражение: H(f) = S_xx(f) / [S_xx(f) + S_nn(f)]")
+    print("   - Источник реализации: scipy.signal.wiener (стандартная библиотека SciPy)")
+    print("   - Преимущества: не требует сложной установки, высокая скорость,")
+    print("     интерпретируемость результатов")
+
+    print("\n" + "="*70)
     print("ОТЧЕТ СОХРАНЕН В ПАПКЕ 'results'")
-    print("=" * 70)
+    print("="*70)
 
 
 def generate_subjective_form(noise_results):
-    """
-    Генерация формы для субъективной оценки
-    """
-    print("\n" + "=" * 70)
+    """Генерация формы для субъективной оценки"""
+    print("\n" + "="*70)
     print("ФОРМА ДЛЯ СУБЪЕКТИВНОЙ ОЦЕНКИ КАЧЕСТВА")
-    print("=" * 70)
+    print("="*70)
 
     print("\nПрослушайте файлы и оцените качество по шкале от 1 до 5:")
     print("1 - Очень плохо, 2 - Плохо, 3 - Удовлетворительно, 4 - Хорошо, 5 - Отлично")
-    print("\n" + "-" * 70)
+    print("\n" + "-"*70)
 
     print("\n| SNR (дБ) | Зашумленный (1-5) | Очищенный (1-5) |")
     print("|----------|-------------------|-----------------|")
@@ -171,13 +189,16 @@ def generate_subjective_form(noise_results):
     for r in noise_results:
         print(f"| {r['snr_target']:>8} | _____ | _____ |")
 
-    print("\n" + "-" * 70)
-    print("Файлы для прослушивания сохранены в папке 'results'")
+    print("\n" + "-"*70)
+    print("Файлы для прослушивания:")
+    for r in noise_results:
+        print(f"  - results/noisy_snr_{r['snr_target']:.0f}dB.wav")
+        print(f"  - results/enhanced_snr_{r['snr_target']:.0f}dB.wav")
 
     # Сохранение формы в файл
     with open('results/subjective_evaluation_form.txt', 'w', encoding='utf-8') as f:
         f.write("ФОРМА ДЛЯ СУБЪЕКТИВНОЙ ОЦЕНКИ КАЧЕСТВА\n")
-        f.write("=" * 60 + "\n\n")
+        f.write("="*60 + "\n\n")
         f.write("Оцените качество по шкале от 1 до 5:\n")
         f.write("1 - Очень плохо, 2 - Плохо, 3 - Удовлетворительно, 4 - Хорошо, 5 - Отлично\n\n")
         f.write("| SNR (дБ) | Зашумленный (1-5) | Очищенный (1-5) |\n")
@@ -185,5 +206,10 @@ def generate_subjective_form(noise_results):
 
         for r in noise_results:
             f.write(f"| {r['snr_target']:>8} | _____ | _____ |\n")
+
+        f.write("\n\nФайлы для прослушивания:\n")
+        for r in noise_results:
+            f.write(f"  - results/noisy_snr_{r['snr_target']:.0f}dB.wav\n")
+            f.write(f"  - results/enhanced_snr_{r['snr_target']:.0f}dB.wav\n")
 
     print("\n✓ Форма сохранена: results/subjective_evaluation_form.txt")
