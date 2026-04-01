@@ -9,24 +9,7 @@ from config import SAMPLE_RATE, N_FFT, HOP_LENGTH, N_MELS, N_MFCC
 from spectrogram import stft_manual, mel_spectrogram_manual
 
 
-# ============================================================================
-# СПЕКТРАЛЬНЫЙ ЦЕНТРОИД
-# ============================================================================
-
 def spectral_centroid_manual(stft_matrix, sr=SAMPLE_RATE):
-    """
-    Самостоятельная реализация спектрального центроида
-
-    Спектральный центроид - средневзвешенная частота спектра,
-    указывает на "яркость" звука. Чем выше значение, тем ярче звук.
-
-    Parameters:
-    - stft_matrix: матрица STFT
-    - sr: частота дискретизации
-
-    Returns:
-    - centroids: массив центроидов для каждого кадра
-    """
     freqs = np.linspace(0, sr / 2, stft_matrix.shape[0])
     n_frames = stft_matrix.shape[1]
     centroids = np.zeros(n_frames)
@@ -54,24 +37,8 @@ def spectral_centroid_librosa(signal, sr=SAMPLE_RATE):
     return centroid[0]
 
 
-# ============================================================================
-# СПЕКТРАЛЬНЫЙ СПАД
-# ============================================================================
 
 def spectral_rolloff_manual(stft_matrix, sr=SAMPLE_RATE, roll_percent=0.85):
-    """
-    Самостоятельная реализация спектрального спада
-
-    Спектральный спад - частота, ниже которой сосредоточено roll_percent энергии
-
-    Parameters:
-    - stft_matrix: матрица STFT
-    - sr: частота дискретизации
-    - roll_percent: процент энергии (0.85 = 85%)
-
-    Returns:
-    - rolloffs: массив частот спада для каждого кадра
-    """
     freqs = np.linspace(0, sr / 2, stft_matrix.shape[0])
     n_frames = stft_matrix.shape[1]
     rolloffs = np.zeros(n_frames)
@@ -105,25 +72,7 @@ def spectral_rolloff_librosa(signal, sr=SAMPLE_RATE, roll_percent=0.85):
     )
     return rolloff[0]
 
-
-# ============================================================================
-# СПЕКТРАЛЬНАЯ ШИРИНА
-# ============================================================================
-
 def spectral_bandwidth_manual(stft_matrix, sr=SAMPLE_RATE):
-    """
-    Самостоятельная реализация спектральной ширины
-
-    Спектральная ширина - взвешенное стандартное отклонение частот
-    от спектрального центроида. Характеризует "ширину" спектра.
-
-    Parameters:
-    - stft_matrix: матрица STFT
-    - sr: частота дискретизации
-
-    Returns:
-    - bandwidth: массив спектральной ширины для каждого кадра
-    """
     freqs = np.linspace(0, sr / 2, stft_matrix.shape[0])
     n_frames = stft_matrix.shape[1]
     bandwidth = np.zeros(n_frames)
@@ -152,26 +101,7 @@ def spectral_bandwidth_librosa(signal, sr=SAMPLE_RATE):
     )
     return bandwidth[0]
 
-
-# ============================================================================
-# ЧАСТОТА ПЕРЕСЕЧЕНИЯ НУЛЯ
-# ============================================================================
-
 def zcr_manual(signal, frame_length=512, hop_length=256):
-    """
-    Самостоятельная реализация частоты пересечения нуля (ZCR)
-
-    ZCR - количество пересечений нуля в сигнале за единицу времени.
-    Высокое значение характерно для шумных сигналов, низкое - для тональных.
-
-    Parameters:
-    - signal: входной сигнал
-    - frame_length: длина кадра
-    - hop_length: шаг между кадрами
-
-    Returns:
-    - zcr: массив значений ZCR для каждого кадра
-    """
     n_frames = 1 + (len(signal) - frame_length) // hop_length
     zcr = np.zeros(n_frames)
 
@@ -195,26 +125,7 @@ def zcr_librosa(signal, frame_length=512, hop_length=256):
     return zcr[0]
 
 
-# ============================================================================
-# MFCC (Мел-частотные кепстральные коэффициенты)
-# ============================================================================
-
 def mfcc_manual(signal, sr=SAMPLE_RATE, n_mfcc=N_MFCC, n_mels=N_MELS):
-    """
-    Самостоятельная реализация MFCC
-
-    MFCC - коэффициенты, описывающие тембр звука.
-    Широко используются в распознавании речи и классификации музыки.
-
-    Parameters:
-    - signal: входной сигнал
-    - sr: частота дискретизации
-    - n_mfcc: количество MFCC коэффициентов
-    - n_mels: количество мел-фильтров
-
-    Returns:
-    - mfccs: матрица MFCC (n_mfcc x время)
-    """
     # Получаем мел-спектрограмму
     mel_spec, _ = mel_spectrogram_manual(signal, sr, n_mels=n_mels)
 
@@ -242,28 +153,7 @@ def mfcc_librosa(signal, sr=SAMPLE_RATE, n_mfcc=N_MFCC):
     )
     return mfcc
 
-
-# ============================================================================
-# ЦВЕТНОСТЬ (CHROMA)
-# ============================================================================
-
 def chroma_manual(signal, sr=SAMPLE_RATE, n_fft=N_FFT, hop_length=HOP_LENGTH):
-    """
-    Самостоятельная реализация цветности (Chroma)
-
-    Цветность - распределение энергии по 12 музыкальным нотам.
-    Используется для гармонического анализа музыки.
-
-    Parameters:
-    - signal: входной сигнал
-    - sr: частота дискретизации
-    - n_fft: размер FFT
-    - hop_length: шаг между окнами
-
-    Returns:
-    - chroma: матрица цветности (12 x время)
-    - note_names: названия нот
-    """
     note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
     # Частоты нот (A4 = 440 Hz)

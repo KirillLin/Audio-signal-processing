@@ -1,7 +1,3 @@
-"""
-Реализация спектрограммы и мел-спектрограммы
-"""
-
 import numpy as np
 from scipy.fft import fft
 import librosa
@@ -9,18 +5,7 @@ from config import SAMPLE_RATE, N_FFT, HOP_LENGTH, N_MELS
 
 
 def stft_manual(signal, n_fft=N_FFT, hop_length=HOP_LENGTH, window='hann'):
-    """
-    Самостоятельная реализация STFT (Short-Time Fourier Transform)
 
-    Parameters:
-    - signal: входной сигнал
-    - n_fft: размер окна FFT
-    - hop_length: шаг между окнами
-    - window: тип окна ('hann' или 'rect')
-
-    Returns:
-    - stft_matrix: матрица STFT (частота x время)
-    """
     # Создание окна
     if window == 'hann':
         win = np.hanning(n_fft)
@@ -43,19 +28,7 @@ def stft_manual(signal, n_fft=N_FFT, hop_length=HOP_LENGTH, window='hann'):
 
 
 def create_mel_filterbank_manual(n_fft=N_FFT, sr=SAMPLE_RATE, n_mels=N_MELS, fmin=0, fmax=None):
-    """
-    Самостоятельное создание банка мел-фильтров
 
-    Parameters:
-    - n_fft: размер FFT
-    - sr: частота дискретизации
-    - n_mels: количество мел-фильтров
-    - fmin: минимальная частота (Гц)
-    - fmax: максимальная частота (Гц)
-
-    Returns:
-    - mel_filters: матрица мел-фильтров
-    """
     if fmax is None:
         fmax = sr / 2
 
@@ -101,19 +74,7 @@ def create_mel_filterbank_manual(n_fft=N_FFT, sr=SAMPLE_RATE, n_mels=N_MELS, fmi
 
 
 def mel_spectrogram_manual(signal, sr=SAMPLE_RATE, n_fft=N_FFT, hop_length=HOP_LENGTH, n_mels=N_MELS):
-    """
-    Самостоятельная реализация мел-спектрограммы
 
-    Parameters:
-    - signal: входной сигнал
-    - sr: частота дискретизации
-    - n_fft: размер FFT
-    - hop_length: шаг между окнами
-    - n_mels: количество мел-фильтров
-
-    Returns:
-    - mel_spec: мел-спектрограмма
-    """
     # STFT
     stft_matrix = stft_manual(signal, n_fft, hop_length)
 
@@ -133,9 +94,7 @@ def mel_spectrogram_manual(signal, sr=SAMPLE_RATE, n_fft=N_FFT, hop_length=HOP_L
 
 
 def mel_spectrogram_librosa(signal, sr=SAMPLE_RATE, n_mels=N_MELS):
-    """
-    Библиотечная реализация мел-спектрограммы (librosa)
-    """
+
     mel_spec = librosa.feature.melspectrogram(
         y=signal,
         sr=sr,
@@ -148,9 +107,7 @@ def mel_spectrogram_librosa(signal, sr=SAMPLE_RATE, n_mels=N_MELS):
 
 
 def spectrogram_librosa(signal, sr=SAMPLE_RATE):
-    """
-    Библиотечная реализация спектрограммы
-    """
+
     stft = librosa.stft(signal, n_fft=N_FFT, hop_length=HOP_LENGTH)
     spec_db = librosa.amplitude_to_db(np.abs(stft), ref=np.max)
     return spec_db

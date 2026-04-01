@@ -10,17 +10,7 @@ from config import SAMPLE_RATE, DURATION, AUDIO_DIR, RESULTS_DIR
 
 
 def load_audio(file_path, sr=SAMPLE_RATE):
-    """
-    Загрузка аудиофайла
 
-    Parameters:
-    - file_path: путь к файлу
-    - sr: целевая частота дискретизации
-
-    Returns:
-    - signal: аудиосигнал
-    - sample_rate: частота дискретизации
-    """
     try:
         signal, sample_rate = librosa.load(file_path, sr=sr)
         return signal, sample_rate
@@ -36,17 +26,7 @@ def save_audio(file_path, signal, sr=SAMPLE_RATE):
 
 
 def generate_synthetic_signal(genre, sr=SAMPLE_RATE, duration=DURATION):
-    """
-    Генерация синтетического сигнала для разных жанров
 
-    Parameters:
-    - genre: жанр ('Jazz', 'Rock', 'Classical', 'Electronic', 'Voice')
-    - sr: частота дискретизации
-    - duration: длительность в секундах
-
-    Returns:
-    - signal: синтетический сигнал
-    """
     t = np.linspace(0, duration, int(sr * duration))
 
     if genre == 'Jazz':

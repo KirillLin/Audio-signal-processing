@@ -1,6 +1,3 @@
-"""
-Визуализация результатов
-"""
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -261,16 +258,6 @@ def plot_quality_comparison(results, save_path=None):
 
 
 def plot_methods_comparison(clean_signal, noisy_signal, sr, methods_results, save_path=None):
-    """
-    Визуализация сравнения методов шумоподавления
-
-    Parameters:
-    - clean_signal: чистый сигнал
-    - noisy_signal: зашумленный сигнал
-    - sr: частота дискретизации
-    - methods_results: результаты сравнения методов
-    - save_path: путь для сохранения
-    """
     # Выбираем до 4 методов для отображения
     methods_to_show = list(methods_results.keys())[:4]
     n_methods = len(methods_to_show)

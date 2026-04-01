@@ -1,6 +1,3 @@
-"""
-Генерация отчета
-"""
 
 import numpy as np
 import pandas as pd
@@ -70,15 +67,7 @@ def generate_metrics_table(results, sr):
 
 
 def generate_report(music_results, noise_results, sr, best_method_info=None):
-    """
-    Генерация полного отчета
 
-    Parameters:
-    - music_results: результаты анализа музыкальных файлов
-    - noise_results: результаты экспериментов с шумом
-    - sr: частота дискретизации
-    - best_method_info: информация о лучшем методе шумоподавления (опционально)
-    """
     print("\n" + "="*70)
     print("ИТОГОВЫЙ ОТЧЕТ ПО ЛАБОРАТОРНОЙ РАБОТЕ")
     print("="*70)

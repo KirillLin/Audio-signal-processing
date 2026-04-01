@@ -1,6 +1,3 @@
-"""
-Обработка шума: добавление шума и шумоподавление
-"""
 
 import numpy as np
 import librosa
@@ -34,17 +31,6 @@ def add_noise_with_snr(clean_signal, noise, snr_db):
 
 
 def find_best_noise_sample(noisy_signal, sr, min_duration=0.3):
-    """
-    Поиск лучшего участка для оценки шума
-
-    Parameters:
-    - noisy_signal: зашумленный сигнал
-    - sr: частота дискретизации
-    - min_duration: минимальная длительность участка (сек)
-
-    Returns:
-    - noise_sample: участок с шумом (всегда возвращает массив)
-    """
     # Проверка входных данных
     if noisy_signal is None or len(noisy_signal) == 0:
         print("   Предупреждение: пустой сигнал, создаю шумовой участок")

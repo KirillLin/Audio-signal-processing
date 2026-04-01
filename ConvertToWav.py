@@ -1,37 +1,19 @@
-"""
-batch_convert.py
-Пакетная конвертация всех MP3 файлов из папки в WAV
-Интерактивный режим: программа сама спрашивает параметры
-"""
-
 import os
 import librosa
 import soundfile as sf
 
 
 def clear_screen():
-    """Очистка экрана (опционально)"""
     os.system('cls' if os.name == 'nt' else 'clear')
 
 
 def print_header(text):
-    """Печать заголовка"""
     print("\n" + "=" * 60)
     print(f"  {text}")
     print("=" * 60)
 
 
 def get_user_input(prompt, default=None, input_type=str, min_val=None, max_val=None):
-    """
-    Универсальная функция для получения пользовательского ввода
-
-    Parameters:
-    - prompt: текст запроса
-    - default: значение по умолчанию
-    - input_type: тип данных (str, int, float)
-    - min_val: минимальное значение (для чисел)
-    - max_val: максимальное значение (для чисел)
-    """
     while True:
         if default is not None:
             user_input = input(f"{prompt} [{default}]: ").strip()
@@ -64,9 +46,7 @@ def get_user_input(prompt, default=None, input_type=str, min_val=None, max_val=N
 
 
 def get_interval_input(file_name, file_duration, default_start=0, default_end=5):
-    """
-    Запрос интервала обрезки для конкретного файла
-    """
+
     print(f"\n  Файл: {file_name}")
     print(f"  Длительность: {file_duration:.1f} сек")
 
@@ -105,16 +85,11 @@ def get_interval_input(file_name, file_duration, default_start=0, default_end=5)
 
 
 def interactive_batch_convert():
-    """
-    Интерактивная пакетная конвертация с запросом всех параметров
-    """
+
     clear_screen()
 
     print_header("КОНВЕРТАЦИЯ MP3 → WAV")
 
-    # =========================================================
-    # ШАГ 1: Запрос папок
-    # =========================================================
     print("\n📁 ШАГ 1: Укажите папки")
     print("-" * 40)
 
@@ -141,9 +116,6 @@ def interactive_batch_convert():
 
     os.makedirs(output_folder, exist_ok=True)
 
-    # =========================================================
-    # ШАГ 2: Запрос параметров обработки
-    # =========================================================
     print("\n⚙️ ШАГ 2: Настройки обработки")
     print("-" * 40)
 
@@ -185,9 +157,6 @@ def interactive_batch_convert():
         default_end = get_user_input("    Конец (сек)", default=5, input_type=float, min_val=default_start)
         print(f"  ✓ Интервал: {default_start:.1f} - {default_end:.1f} сек")
 
-    # =========================================================
-    # ШАГ 3: Поиск MP3 файлов
-    # =========================================================
     print("\n🔍 ШАГ 3: Поиск MP3 файлов")
     print("-" * 40)
 
@@ -201,9 +170,6 @@ def interactive_batch_convert():
     for i, f in enumerate(mp3_files, 1):
         print(f"    {i}. {f}")
 
-    # =========================================================
-    # ШАГ 4: Подтверждение начала
-    # =========================================================
     print("\n▶️ ШАГ 4: Подтверждение")
     print("-" * 40)
     print(f"  Папка исходников: {input_folder}")
@@ -221,9 +187,6 @@ def interactive_batch_convert():
         print("  ✗ Конвертация отменена")
         return
 
-    # =========================================================
-    # ШАГ 5: Конвертация
-    # =========================================================
     print("\n📀 ШАГ 5: Конвертация")
     print("-" * 40)
 
@@ -245,13 +208,11 @@ def interactive_batch_convert():
 
             # Определение интервала обрезки
             if trim_mode == 1:
-                # Одинаковый интервал
                 start = default_start
                 end = default_end
                 process_file = True
 
             elif trim_mode == 2:
-                # Индивидуальный интервал
                 start, end, process_file = get_interval_input(filename, file_duration, default_start, default_end)
 
             else:
@@ -289,9 +250,6 @@ def interactive_batch_convert():
             print(f"    ✗ Ошибка: {e}")
             error_count += 1
 
-    # =========================================================
-    # ШАГ 6: Итоговая статистика
-    # =========================================================
     print_header("РЕЗУЛЬТАТЫ КОНВЕРТАЦИИ")
     print(f"  Всего файлов: {len(mp3_files)}")
     print(f"  Успешно: {success_count}")
@@ -299,9 +257,6 @@ def interactive_batch_convert():
     print(f"  Ошибок: {error_count}")
     print(f"\n  Файлы сохранены в: {output_folder}")
 
-    # =========================================================
-    # ШАГ 7: Проверка созданных файлов
-    # =========================================================
     check = get_user_input("\n  Показать информацию о созданных файлах? (да/нет)", default="да", input_type=str)
     if check.lower() in ['да', 'yes', 'y', 'д']:
         print("\n📊 ИНФОРМАЦИЯ О ФАЙЛАХ")
@@ -326,9 +281,6 @@ def interactive_batch_convert():
 
 
 def quick_convert():
-    """
-    Быстрая конвертация с минимальными вопросами
-    """
     clear_screen()
 
     print_header("БЫСТРАЯ КОНВЕРТАЦИЯ MP3 → WAV")
@@ -389,7 +341,6 @@ def quick_convert():
 
 
 if __name__ == "__main__":
-    # Главное меню
     print_header("КОНВЕРТЕР MP3 → WAV")
     print("  Выберите режим работы:")
     print("    1 - Полный интерактивный режим (все вопросы)")
