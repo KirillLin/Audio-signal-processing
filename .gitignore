@@ -9,7 +9,10 @@ sounds/*.wav
 **/*.wav
 
 
+
 .idea/
 __pycache__/
 
 results/
+Mp3/
+Wav/
