@@ -125,16 +125,14 @@ def main():
     print(f"Диапазон SNR: {SNR_VALUES[0]}-{SNR_VALUES[-1]} дБ, шаг {SNR_VALUES[1]-SNR_VALUES[0]} дБ")
     print(f"Метод шумоподавления: Винеровский фильтр")
 
-    # Проведение эксперимента с шумоподавлением
     noise_results = batch_noise_experiment(
         voice_signal,
         noise_signal,
         SNR_VALUES,
         voice_sr,
-        method='wiener'
+        method='wiener' #поменять на другой для эксперимента
     )
 
-    # Сохранение аудиофайлов и визуализация
     for r in noise_results:
         save_audio(os.path.join(RESULTS_DIR, f'noisy_snr_{r["snr_target"]:.0f}dB.wav'),
                    r['noisy'], voice_sr)
@@ -152,7 +150,6 @@ def main():
     print("СРАВНЕНИЕ МЕТОДОВ ШУМОПОДАВЛЕНИЯ")
     print("="*70)
 
-    # Возьмем сигнал с SNR=6 дБ для сравнения
     test_snr = 6
     test_noisy = None
     for r in noise_results:
@@ -162,16 +159,13 @@ def main():
 
     best_method_info = None
     if test_noisy is not None:
-        # Сравнение методов
         methods_results, best_method = compare_denoise_methods(voice_signal, test_noisy, voice_sr)
 
-        # Визуализация сравнения
         plot_methods_comparison(voice_signal, test_noisy, voice_sr, methods_results,
                                os.path.join(RESULTS_DIR, 'methods_comparison.png'))
 
         best_method_info = best_method
 
-        # Сохраняем лучший результат отдельно
         best_enhanced = best_method[1]['signal']
         save_audio(os.path.join(RESULTS_DIR, f'best_method_enhanced.wav'),
                    best_enhanced, voice_sr)
@@ -187,22 +181,21 @@ def main():
 
     if noise_results:
         improvements = [r['improvement'] for r in noise_results]
-        print(f"\n📈 Результаты шумоподавления (Винеровский фильтр):")
+        print(f"\n Результаты шумоподавления (Винеровский фильтр):")
         for r in noise_results:
-            status = "✓" if r['improvement'] > 0 else "✗"
+            status = "" if r['improvement'] > 0 else ""
             print(f"   SNR {r['snr_target']:2d} дБ: {r['snr_noisy']:.2f} → {r['snr_enhanced']:.2f} дБ ({status} {abs(r['improvement']):.2f} дБ)")
 
-        print(f"\n📊 Среднее улучшение: {np.mean(improvements):.2f} дБ")
-        print(f"🏆 Максимальное улучшение: {max(improvements):.2f} дБ")
+        print(f"\n Среднее улучшение: {np.mean(improvements):.2f} дБ")
+        print(f" Максимальное улучшение: {max(improvements):.2f} дБ")
 
-    # Подсчет графиков
     png_files = []
     for root, dirs, files in os.walk('results'):
         for file in files:
             if file.endswith('.png'):
                 png_files.append(os.path.join(root, file))
 
-    print(f"\n📊 Создано PNG графиков: {len(png_files)}")
+    print(f"\n Создано PNG графиков: {len(png_files)}")
 
     print("\n" + "="*70)
     print("РАБОТА ЗАВЕРШЕНА УСПЕШНО!")

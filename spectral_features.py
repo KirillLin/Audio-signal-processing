@@ -126,13 +126,11 @@ def zcr_librosa(signal, frame_length=512, hop_length=256):
 
 
 def mfcc_manual(signal, sr=SAMPLE_RATE, n_mfcc=N_MFCC, n_mels=N_MELS):
-    # Получаем мел-спектрограмму
     mel_spec, _ = mel_spectrogram_manual(signal, sr, n_mels=n_mels)
 
     n_frames = mel_spec.shape[1]
     mfccs = np.zeros((n_mfcc, n_frames))
 
-    # DCT-II преобразование
     for i in range(n_frames):
         for k in range(n_mfcc):
             mfccs[k, i] = np.sum(
@@ -156,24 +154,20 @@ def mfcc_librosa(signal, sr=SAMPLE_RATE, n_mfcc=N_MFCC):
 def chroma_manual(signal, sr=SAMPLE_RATE, n_fft=N_FFT, hop_length=HOP_LENGTH):
     note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
-    # Частоты нот (A4 = 440 Hz)
     a4_freq = 440
     note_freqs = []
     for i in range(-48, 48):  # 4 октавы вверх и вниз
         note_freqs.append(a4_freq * (2 ** (i / 12)))
 
-    # STFT
     stft_matrix = stft_manual(signal, n_fft, hop_length)
     freqs = np.linspace(0, sr / 2, stft_matrix.shape[0])
     n_frames = stft_matrix.shape[1]
 
-    # Инициализация хромы
     chroma = np.zeros((12, n_frames))
 
     for i in range(n_frames):
         spectrum = np.abs(stft_matrix[:, i])
 
-        # Для каждой ноты суммируем энергию во всех октавах
         for note_idx in range(12):
             note_energy = 0
             for freq in note_freqs:

@@ -7,7 +7,7 @@ from quality_metrics import snr_manual, sdr_manual, si_sdr_manual, pesq_metric, 
 
 
 def generate_metrics_table(results, sr):
-    """Генерация таблицы метрик качества"""
+    """Генерация таблицы метрик качества (с добавлением NISQA)"""
     data = []
 
     for r in results:
@@ -15,8 +15,6 @@ def generate_metrics_table(results, sr):
             'SNR_целевой (дБ)': r['snr_target'],
             'SNR_фактический (дБ)': f"{r['actual_snr']:.2f}",
         }
-
-        # Метрики для зашумленного сигнала
         snr_n = snr_manual(r['original'], r['noisy'])
         sdr_n = sdr_manual(r['original'], r['noisy'])
         si_sdr_n = si_sdr_manual(r['original'], r['noisy'])
@@ -30,12 +28,11 @@ def generate_metrics_table(results, sr):
         row['SI-SDR_зашумленный'] = f"{si_sdr_n:.2f}"
         row['PESQ_зашумленный'] = f"{pesq_n:.2f}" if pesq_n else "N/A"
         row['STOI_зашумленный'] = f"{stoi_n:.3f}" if stoi_n else "N/A"
-        row['NISQA_зашумленный'] = f"{nisqa_n:.2f}"
+        row['NISQA_зашумленный'] = f"{nisqa_n:.2f}"           # ← ДОБАВЛЕНО
         row['DNSMOS_SIG_зашумленный'] = f"{dnsmos_n['SIG']:.2f}"
         row['DNSMOS_BAK_зашумленный'] = f"{dnsmos_n['BAK']:.2f}"
         row['DNSMOS_OVRL_зашумленный'] = f"{dnsmos_n['OVRL']:.2f}"
 
-        # Метрики для очищенного сигнала
         snr_e = snr_manual(r['original'], r['enhanced'])
         sdr_e = sdr_manual(r['original'], r['enhanced'])
         si_sdr_e = si_sdr_manual(r['original'], r['enhanced'])
@@ -54,11 +51,15 @@ def generate_metrics_table(results, sr):
         row['DNSMOS_BAK_очищенный'] = f"{dnsmos_e['BAK']:.2f}"
         row['DNSMOS_OVRL_очищенный'] = f"{dnsmos_e['OVRL']:.2f}"
 
-        # Улучшение
-        improvement = snr_e - snr_n
-        row['SNR_улучшение'] = f"{improvement:.2f}"
-        row['SDR_улучшение'] = f"{sdr_e - sdr_n:.2f}"
-        row['SI-SDR_улучшение'] = f"{si_sdr_e - si_sdr_n:.2f}"
+        improvement_snr = snr_e - snr_n
+        improvement_sdr = sdr_e - sdr_n
+        improvement_si_sdr = si_sdr_e - si_sdr_n
+        improvement_nisqa = nisqa_e - nisqa_n
+
+        row['SNR_улучшение'] = f"{improvement_snr:.2f}"
+        row['SDR_улучшение'] = f"{improvement_sdr:.2f}"
+        row['SI-SDR_улучшение'] = f"{improvement_si_sdr:.2f}"
+        row['NISQA_улучшение'] = f"{improvement_nisqa:.2f}"
 
         data.append(row)
 
@@ -99,13 +100,13 @@ def generate_report(music_results, noise_results, sr, best_method_info=None):
         avg_improvement = np.mean([r['improvement'] for r in noise_results])
         max_improvement = max([r['improvement'] for r in noise_results])
 
-        print(f"\n📊 Сводная статистика шумоподавления:")
+        print(f"\n Сводная статистика шумоподавления:")
         print(f"   - Среднее улучшение SNR: {avg_improvement:.2f} дБ")
         print(f"   - Максимальное улучшение SNR: {max_improvement:.2f} дБ")
 
     # Информация о лучшем методе (если передана)
     if best_method_info is not None:
-        print(f"\n🏆 Лучший метод шумоподавления: {best_method_info[0]}")
+        print(f"\n Лучший метод шумоподавления: {best_method_info[0]}")
         print(f"   Улучшение SNR: {best_method_info[1]['improvement']:.2f} дБ")
 
     # Генерация таблицы метрик
@@ -118,48 +119,6 @@ def generate_report(music_results, noise_results, sr, best_method_info=None):
     os.makedirs('results', exist_ok=True)
     df_metrics.to_csv('results/metrics_table.csv', index=False)
     print("\n✓ Таблица сохранена: results/metrics_table.csv")
-
-    # Часть 3: Выводы
-    print("\n" + "="*70)
-    print("ВЫВОДЫ")
-    print("="*70)
-
-    print("\n1. Анализ спектральных признаков:")
-    print("   - Спектральный центроид: классическая музыка имеет низкий центроид (542 Гц),")
-    print("     электронная музыка - высокий (3076 Гц), что соответствует ожиданиям")
-    print("   - Спектральный спад: показывает распределение энергии по частотам")
-    print("   - Спектральная ширина: рок и электроника имеют широкий спектр")
-    print("   - ZCR: электроника имеет высокий ZCR (0.20), классика - низкий (0.03)")
-
-    print("\n2. Эффективность шумоподавления (Винеровский фильтр):")
-    if noise_results:
-        print(f"   - Среднее улучшение SNR: {avg_improvement:.2f} дБ")
-        print(f"   - Максимальное улучшение SNR: {max_improvement:.2f} дБ")
-        print("   - Винеровский фильтр показал наилучшие результаты среди всех методов")
-        print("   - Метод сохраняет разборчивость речи (STOI практически не изменился)")
-
-    print("\n3. Корреляция метрик:")
-    print("   - SNR, SDR, SI-SDR: высокая корреляция между собой")
-    print("   - PESQ, STOI: лучше коррелируют с субъективным восприятием")
-    print("   - NISQA, DNSMOS: неинтрузивные метрики для оценки без эталона")
-
-    print("\n4. Рекомендации по использованию метрик:")
-    print("   - Для быстрой оценки: SNR или SDR")
-    print("   - Для перцептивной оценки: PESQ или STOI")
-    print("   - Для оценки шумоподавления: DNSMOS")
-    print("   - Для оценки без эталона: NISQA")
-
-    print("\n5. Обоснование выбора метода шумоподавления:")
-    print("   - Винеровский фильтр является оптимальным линейным фильтром,")
-    print("     минимизирующим среднеквадратическую ошибку (MSE)")
-    print("   - Математическое выражение: H(f) = S_xx(f) / [S_xx(f) + S_nn(f)]")
-    print("   - Источник реализации: scipy.signal.wiener (стандартная библиотека SciPy)")
-    print("   - Преимущества: не требует сложной установки, высокая скорость,")
-    print("     интерпретируемость результатов")
-
-    print("\n" + "="*70)
-    print("ОТЧЕТ СОХРАНЕН В ПАПКЕ 'results'")
-    print("="*70)
 
 
 def generate_subjective_form(noise_results):

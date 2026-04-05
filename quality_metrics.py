@@ -3,13 +3,8 @@ import numpy as np
 import librosa
 from config import SAMPLE_RATE, PESQ_TARGET_SR, STOI_TARGET_SR
 
-
-# ============================================================================
-# SNR (Signal-to-Noise Ratio)
-# ============================================================================
-
 def snr_manual(original, processed):
-    # Выравнивание длины
+
     min_len = min(len(original), len(processed))
     original = original[:min_len]
     processed = processed[:min_len]
@@ -29,10 +24,8 @@ def sdr_manual(original, processed):
     original = original[:min_len]
     processed = processed[:min_len]
 
-    # Энергия сигнала
     energy_signal = np.sum(original ** 2)
 
-    # Энергия искажения
     energy_distortion = np.sum((original - processed) ** 2)
 
     if energy_distortion == 0:
@@ -88,10 +81,10 @@ def pesq_metric(original, processed, sr=SAMPLE_RATE):
         return pesq_score
 
     except ImportError:
-        print("⚠️ PESQ не установлен. Установите: pip install pesq")
+        print("️ PESQ не установлен. Установите: pip install pesq")
         return None
     except Exception as e:
-        print(f"⚠️ Ошибка вычисления PESQ: {e}")
+        print(f" Ошибка вычисления PESQ: {e}")
         return None
 
 
@@ -119,10 +112,10 @@ def stoi_metric(original, processed, sr=SAMPLE_RATE):
         return stoi_score
 
     except ImportError:
-        print("⚠️ STOI не установлен. Установите: pip install pystoi")
+        print(" STOI не установлен. Установите: pip install pystoi")
         return None
     except Exception as e:
-        print(f"⚠️ Ошибка вычисления STOI: {e}")
+        print(f" Ошибка вычисления STOI: {e}")
         return None
 
 def nisqa_metric(processed, sr=SAMPLE_RATE):

@@ -5,6 +5,18 @@ from scipy.signal import wiener, medfilt
 import noisereduce as nr
 from config import SAMPLE_RATE, SNR_VALUES
 
+DENOISER_AVAILABLE = False
+try:
+    from denoiser import pretrained
+    from denoiser.dsp import convert_audio
+    import torch
+
+    DENOISER_AVAILABLE = True
+    print("✓ Denoiser (Facebook) доступен — нейросетевое шумоподавление")
+except ImportError:
+    print("⚠️ Denoiser не установлен. Установите: pip install denoiser")
+    print("   Будет использоваться классический Винеровский фильтр")
+
 
 def add_noise_with_snr(clean_signal, noise, snr_db):
     """Добавление шума к сигналу с заданным SNR"""
@@ -31,35 +43,29 @@ def add_noise_with_snr(clean_signal, noise, snr_db):
 
 
 def find_best_noise_sample(noisy_signal, sr, min_duration=0.3):
-    # Проверка входных данных
+    """Поиск лучшего участка для оценки шума"""
     if noisy_signal is None or len(noisy_signal) == 0:
         print("   Предупреждение: пустой сигнал, создаю шумовой участок")
         return np.random.randn(int(sr * 0.5)) * 0.1
 
-    # Если сигнал слишком короткий
     if len(noisy_signal) < sr * min_duration:
         print(f"   Предупреждение: сигнал слишком короткий, использую первые 0.3 сек")
         return noisy_signal[:int(sr * 0.3)]
 
     try:
-        # Анализ сигнала
         window_size = int(sr * 0.05)  # 50 мс
-        hop_size = int(sr * 0.025)    # 25 мс
+        hop_size = int(sr * 0.025)  # 25 мс
 
-        # Вычисляем энергию в каждом окне
         energies = []
         for i in range(0, len(noisy_signal) - window_size, hop_size):
             window = noisy_signal[i:i + window_size]
             energies.append(np.sum(window ** 2))
 
         if len(energies) == 0:
-            print("   Предупреждение: не удалось вычислить энергию, использую первые 0.3 сек")
             return noisy_signal[:int(sr * 0.3)]
 
-        # Находим 5 самых тихих участков
         quiet_indices = np.argsort(energies)[:5]
 
-        # Выбираем участок с наименьшей вариацией
         best_variance = float('inf')
         best_start = 0
         noise_duration = int(sr * 0.5)
@@ -67,24 +73,18 @@ def find_best_noise_sample(noisy_signal, sr, min_duration=0.3):
         for idx in quiet_indices:
             start = idx * hop_size
             end = min(start + noise_duration, len(noisy_signal))
-
-            if end - start < sr * 0.2:  # Слишком короткий участок
+            if end - start < sr * 0.2:
                 continue
-
             segment = noisy_signal[start:end]
             variance = np.var(segment)
-
             if variance < best_variance:
                 best_variance = variance
                 best_start = start
 
-        # Формируем результат
         end = min(best_start + noise_duration, len(noisy_signal))
         noise_sample = noisy_signal[best_start:end]
 
-        # Проверка результата
         if len(noise_sample) < sr * 0.2:
-            print("   Предупреждение: найденный участок слишком короткий, использую первые 0.3 сек")
             return noisy_signal[:int(sr * 0.3)]
 
         return noise_sample
@@ -93,16 +93,69 @@ def find_best_noise_sample(noisy_signal, sr, min_duration=0.3):
         print(f"   Предупреждение: ошибка поиска шума ({e}), использую первые 0.3 сек")
         return noisy_signal[:int(sr * 0.3)]
 
+_denoiser_model = None
+
+
+def get_denoiser_model():
+    """Ленивая загрузка модели Denoiser (загружается только при первом использовании)"""
+    global _denoiser_model
+    if _denoiser_model is None and DENOISER_AVAILABLE:
+        print("   Загрузка модели Denoiser \...")
+        _denoiser_model = pretrained.dns64()
+        print("    Модель Denoiser загружена")
+    return _denoiser_model
+
+
+def denoise_denoiser(noisy_signal, sr, atten_lim_db=12.0):
+    if not DENOISER_AVAILABLE:
+        print("   Denoiser не доступен")
+        return denoise_wiener(noisy_signal, sr)
+
+    try:
+        print("   Denoiser (нейросетевое шумоподавление от Facebook)...")
+
+        # Получаем модель
+        model = get_denoiser_model()
+
+        # Конвертируем в тензор
+        wav = torch.from_numpy(noisy_signal).float()
+
+        # Приводим к нужной частоте (Denoiser работает с 16 кГц или 48 кГц)
+        target_sr = model.sample_rate
+        if sr != target_sr:
+            wav = convert_audio(wav, sr, target_sr, model.chin)
+
+        # Шумоподавление
+        with torch.no_grad():
+            denoised = model(wav[None])[0]  # добавляем batch dimension
+
+
+        denoised = denoised.cpu().numpy()
+
+
+        if sr != target_sr:
+            denoised = librosa.resample(denoised, orig_sr=target_sr, target_sr=sr)
+
+        # Обрезаем до исходной длины
+        denoised = denoised[:len(noisy_signal)]
+
+        # Нормализация (предотвращаем клиппинг)
+        max_val = np.max(np.abs(denoised))
+        if max_val > 0.99:
+            denoised = denoised / (max_val + 1e-10) * 0.95
+
+        return denoised
+
+    except Exception as e:
+        print(f"   Ошибка Denoiser: {e}")
+        print("    Винеровский фильтр")
+        return denoise_wiener(noisy_signal, sr)
 
 def denoise_noisereduce(noisy_signal, sr, prop_decrease=0.55, snr_db=None):
-    """
-    Шумоподавление с помощью noisereduce с улучшенными настройками
-    """
+    """Шумоподавление с помощью noisereduce"""
     try:
-        # Поиск лучшего участка для оценки шума
         noise_sample = find_best_noise_sample(noisy_signal, sr)
 
-        # Адаптивный коэффициент подавления
         if snr_db is not None:
             if snr_db < 6:
                 prop_decrease = 0.70
@@ -111,7 +164,6 @@ def denoise_noisereduce(noisy_signal, sr, prop_decrease=0.55, snr_db=None):
             else:
                 prop_decrease = 0.40
 
-        # Применяем шумоподавление
         enhanced = nr.reduce_noise(
             y=noisy_signal,
             sr=sr,
@@ -121,18 +173,15 @@ def denoise_noisereduce(noisy_signal, sr, prop_decrease=0.55, snr_db=None):
             time_constant_s=0.4,
             freq_mask_smooth_hz=500
         )
-
         return enhanced
-
     except Exception as e:
         print(f"   Ошибка в noisereduce: {e}")
         return noisy_signal
 
 
 def denoise_wiener(noisy_signal, sr, mysize=7):
-    """Винеровская фильтрация"""
+
     try:
-        from scipy.signal import wiener
         enhanced = wiener(noisy_signal, mysize=mysize)
         return enhanced
     except Exception as e:
@@ -141,9 +190,7 @@ def denoise_wiener(noisy_signal, sr, mysize=7):
 
 
 def denoise_median(noisy_signal, sr, kernel_size=5):
-    """Медианная фильтрация"""
     try:
-        from scipy.signal import medfilt
         enhanced = medfilt(noisy_signal, kernel_size=kernel_size)
         return enhanced
     except Exception as e:
@@ -152,7 +199,7 @@ def denoise_median(noisy_signal, sr, kernel_size=5):
 
 
 def denoise_spectral_gate(noisy_signal, sr, threshold_db=-20):
-    """Спектральное шумоподавление"""
+
     try:
         n_fft = 2048
         hop_length = 512
@@ -190,10 +237,9 @@ def denoise_fft_threshold(noisy_signal, sr, threshold_ratio=0.15):
 
 
 def denoise_main(noisy_signal, sr, method='wiener', **kwargs):
-    """
-    Основная функция шумоподавления
-    """
+
     methods = {
+        'denoiser': denoise_denoiser,
         'wiener': denoise_wiener,
         'median': denoise_median,
         'spectral': denoise_spectral_gate,
@@ -202,7 +248,8 @@ def denoise_main(noisy_signal, sr, method='wiener', **kwargs):
     }
 
     if method not in methods:
-        method = 'wiener'
+        print(f"  Метод {method} не найден, использую denoiser (если доступен)")
+        method = 'denoiser' if DENOISER_AVAILABLE else 'wiener'
 
     return methods[method](noisy_signal, sr, **kwargs)
 
@@ -228,13 +275,11 @@ def generate_noise_signal(sr=SAMPLE_RATE, duration=5, noise_type='white'):
 
 
 def compare_denoise_methods(clean_signal, noisy_signal, sr):
-    """
-    Сравнение различных методов шумоподавления
-    """
     from quality_metrics import snr_manual
 
     methods = {
-        'Винеровский фильтр (рекомендуемый)': lambda x, s: denoise_wiener(x, s, mysize=7),
+        'Denoiser (Facebook, нейросеть)': lambda x, s: denoise_denoiser(x, s),
+
         'Медианный фильтр': lambda x, s: denoise_median(x, s, kernel_size=5),
         'Спектральный порог': denoise_spectral_gate,
         'FFT порог': denoise_fft_threshold,
@@ -243,9 +288,9 @@ def compare_denoise_methods(clean_signal, noisy_signal, sr):
 
     results = {}
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("СРАВНЕНИЕ МЕТОДОВ ШУМОПОДАВЛЕНИЯ")
-    print("="*70)
+    print("=" * 70)
     print(f"{'Метод':<35} | {'SNR до':<10} | {'SNR после':<10} | {'Улучшение':<10}")
     print("-" * 70)
 
@@ -264,26 +309,25 @@ def compare_denoise_methods(clean_signal, noisy_signal, sr):
                 'improvement': improvement
             }
 
-            status = "✓" if improvement > 0 else "✗"
+            status = "" if improvement > 0 else ""
             print(f"{name:<35} | {snr_before:>8.2f} | {snr_after:>8.2f} | {improvement:>8.2f} {status}")
 
         except Exception as e:
             print(f"{name:<35} | Ошибка: {e}")
 
-    print("="*70)
+    print("=" * 70)
 
-    # Находим лучший метод
     if results:
         best_method = max(results.items(), key=lambda x: x[1]['improvement'])
-        print(f"\n🏆 Лучший метод: {best_method[0]}")
+        print(f"\n Лучший метод: {best_method[0]}")
         print(f"   Улучшение SNR: {best_method[1]['improvement']:.2f} дБ")
         return results, best_method
     else:
-        print("\n⚠️ Не удалось выполнить сравнение методов")
+        print("\n️ Не удалось выполнить сравнение методов")
         return {}, None
 
 
-def batch_noise_experiment(clean_signal, noise, snr_values, sr=SAMPLE_RATE, method='wiener'):
+def batch_noise_experiment(clean_signal, noise, snr_values, sr=SAMPLE_RATE, method='denoiser'):
     """
     Проведение серии экспериментов с разными SNR
     """
@@ -311,7 +355,7 @@ def batch_noise_experiment(clean_signal, noise, snr_values, sr=SAMPLE_RATE, meth
         si_sdr_e = si_sdr_manual(clean_signal, enhanced_signal)
 
         improvement = snr_e - snr_n
-        status = "✓ Улучшение" if improvement > 0 else "✗ Ухудшение"
+        status = " Улучшение" if improvement > 0 else " Ухудшение"
 
         print(f"  Зашумленный: SNR={snr_n:.2f}, SDR={sdr_n:.2f}, SI-SDR={si_sdr_n:.2f}")
         print(f"  Очищенный:  SNR={snr_e:.2f}, SDR={sdr_e:.2f}, SI-SDR={si_sdr_e:.2f}")
